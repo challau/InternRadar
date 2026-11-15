@@ -7,7 +7,10 @@ export const SOURCES = [
 ];
 export const REFRESH_MS = 15 * 60 * 1000;
 export function cleanText(value='') {
-  return String(value).replace(/&lt;/g,'<').replace(/&gt;/g,'>').replace(/<\/(p|div|li|h[1-6])>/gi,'\n').replace(/<br\s*\/?\s*>/gi,'\n').replace(/<[^>]*>/g,'').replace(/&nbsp;/g,' ').replace(/&amp;/g,'&').replace(/&quot;/g,'"').replace(/&#39;|&#x27;/g,"'").replace(/&#(\d+);/g,(_,n)=>String.fromCharCode(Number(n))).replace(/\n\s*\n/g,'\n\n').trim();
+  let text=String(value);
+  const entities={amp:'&',lt:'<',gt:'>',quot:'"',apos:"'",nbsp:' ',rsquo:'’',lsquo:'‘',rdquo:'”',ldquo:'“',ndash:'–',mdash:'—',bull:'•'};
+  for(let i=0;i<3;i++) text=text.replace(/&(amp|lt|gt|quot|apos|nbsp|rsquo|lsquo|rdquo|ldquo|ndash|mdash|bull);/g,(_,name)=>entities[name]).replace(/&#(x[0-9a-f]+|[0-9]+);/gi,(_,n)=>{const code=n[0].toLowerCase()==='x'?parseInt(n.slice(1),16):Number(n);return code<=0x10ffff?String.fromCodePoint(code):'';});
+  return text.replace(/<\/(p|div|li|h[1-6])>/gi,'\n').replace(/<br\s*\/?\s*>/gi,'\n').replace(/<[^>]*>/g,'').replace(/\n\s*\n/g,'\n\n').trim();
 }
 export function countriesFor(location='') {
   const patterns=[['India',/\bindia\b|bengaluru|bangalore|hyderabad|mumbai|delhi|pune|chennai/i],['United States',/united states|\busa\b|san francisco|new york|seattle|san mateo|mountain view|california|austin|boston|chicago|washington|\b(?:CA|NY|TX|WA),? (?:US|United States)\b/i],['Canada',/canada|toronto|vancouver|montreal/i],['United Kingdom',/united kingdom|\buk\b|london/i],['Ireland',/ireland|dublin/i],['Singapore',/singapore/i],['Australia',/australia|sydney|melbourne/i],['Netherlands',/netherlands|amsterdam/i],['Germany',/germany|berlin|munich/i],['France',/france|paris/i],['Japan',/japan|tokyo/i],['Denmark',/denmark|aarhus|copenhagen/i],['Serbia',/serbia|belgrade/i]];

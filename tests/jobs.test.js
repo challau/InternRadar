@@ -11,3 +11,5 @@ test('failed sources retain stale records instead of falsely marking them closed
 test('invalid feed response is treated as a failure rather than an empty feed',async()=>{const result=await collectJobs(null,async()=>new Response(JSON.stringify({error:'oops'})));assert.equal(result.jobs.length,0);assert.ok(result.sources.every(s=>s.status==='unavailable'));});
 test('details restrict requests to known companies and numeric IDs',async()=>{let calls=0;const fn=async()=>{calls++;return new Response('{}')};assert.equal(await jobDetail('unknown','100',fn),null);assert.equal(await jobDetail('stripe','../../secret',fn),null);assert.equal(calls,0);});
 test('renders HTML descriptions as plain text with paragraph boundaries',()=>{assert.equal(cleanText('&lt;p&gt;Build &amp; learn&lt;/p&gt;&lt;p&gt;Apply today&lt;/p&gt;'),'Build & learn\nApply today');});
+
+test('decodes nested escaped source descriptions before stripping markup',()=>{assert.equal(cleanText('&amp;lt;p&amp;gt;Build &amp;amp; learn&amp;nbsp;today&amp;lt;/p&amp;gt;'),'Build & learn today');});

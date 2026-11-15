@@ -43,9 +43,9 @@ function App(){
    <a className="brand" href="#" onClick={e=>{e.preventDefault();nav('discover')}}><span className="brand-symbol"><Radar size={25}/></span>Intern<span>Radar</span><span className="brand-period">.</span></a>
    <div className="workspace-label">YOUR WORKSPACE</div>
    <nav aria-label="Main navigation">
-    <button className={tab==='discover'?'nav-item active':'nav-item'} onClick={()=>nav('discover')}><Compass size={19}/>Discover internships<ArrowUpRight size={15} className="nav-arrow"/></button>
-    <button className={tab==='saved'?'nav-item active':'nav-item'} onClick={()=>nav('saved')}><Bookmark size={18}/>Saved internships<span className="nav-count">{saved.length}</span></button>
-    <button className={tab==='sources'?'nav-item active':'nav-item'} onClick={()=>nav('sources')}><Globe2 size={19}/>Company sources</button>
+    <button className={tab==='discover'?'nav-item active':'nav-item'} onClick={()=>nav('discover')}><Compass size={19}/><span className="nav-label-desktop">Discover internships</span><span className="nav-label-mobile">Discover</span><ArrowUpRight size={15} className="nav-arrow"/></button>
+    <button className={tab==='saved'?'nav-item active':'nav-item'} onClick={()=>nav('saved')}><Bookmark size={18}/><span className="nav-label-desktop">Saved internships</span><span className="nav-label-mobile">Saved</span><span className="nav-count">{saved.length}</span></button>
+    <button className={tab==='sources'?'nav-item active':'nav-item'} onClick={()=>nav('sources')}><Globe2 size={19}/><span className="nav-label-desktop">Company sources</span><span className="nav-label-mobile">Sources</span></button>
    </nav>
    <div className="sidebar-callout"><span className="mini-orbit"><GraduationCap size={22}/></span><h3>Small steps.<br/>Big possibilities.</h3><p>Your next chapter starts with putting yourself out there.</p><button onClick={()=>setGuide(true)}>How InternRadar works <ArrowUpRight size={14}/></button></div>
    <div className="sidebar-bottom"><span className="green-dot"/> Built for your next chapter<div className="side-bottom-links"><button onClick={()=>setGuide(true)}>About the data</button><span>v1.0</span></div></div>
