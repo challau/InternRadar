@@ -1,51 +1,80 @@
 # InternRadar
 
-An internship search portal built for students. Search real company career feeds, filter by role and country, save opportunities, read job descriptions, and open the official application page.
+India-focused internship and fresher-job search backed by the existing Supabase company directory. Company records are not vacancy records; job results appear only after an official source has been verified and successfully synchronized.
+
+## Architecture
+
+```text
+React + Vite search UI
+        ├── Supabase directory reads, 50 companies per page
+        └── Search/filter URL state
+        │ same-origin JSON REST
+Express API
+        ├── Bounded verified-job search (Supabase RPC)
+        ├── Admin-only career-source verification and configuration
+        ├── Greenhouse / Lever / Ashby public feed connectors
+        ├── Opt-in due-source scheduler, backoff, deduplication and closure detection
+        └── Existing company-management and MongoDB monitoring APIs
+```
+
+The existing repository is a React/Vite/Express application, so the redesign extends that architecture. It does not replace the existing database or management APIs. The 12,000+ Supabase companies are queried using server-side ranges and filters; the browser never loads the entire directory. The old MongoDB company-monitoring API remains available and is separate from the verified Supabase jobs flow.
+
+## Project layout
+
+```text
+src/main.jsx          Search UI, company directory, source setup, saved jobs
+src/search.css        Responsive search experience
+src/supabase.js       Read-only browser Supabase client
+server/index.js       REST APIs and source scheduler
+server/job-search.js  Bounded, parameterized Supabase job search
+server/verified-monitor.js  ATS verification and incremental job synchronization
+shared/jobs.js        Feed connectors, qualification, and URL validation
+supabase/migrations/  Additive verified-jobs schema and search RPC
+tests/                Connector and verified synchronization tests
+```
+
+## Directory and verified listings
+
+- `public.companies` remains the company directory. The **Companies → Directory** view reads only 50 rows at a time and supports name/country filtering.
+- Apply `supabase/migrations/20261120200000_verified_jobs_search.sql` to add `company_sources`, `jobs`, `monitoring_logs`, indexes, RLS policies, and the bounded search RPC.
+- Verified sources are separate from the directory. **Companies → Feed status** requires server-side Supabase service-role access and an admin token; adding a source tests its official ATS feed but leaves monitoring disabled.
+- Enable monitoring explicitly for an already-tested source. The scheduler checks due sources every 15 seconds, but external feed polling follows each source's configured interval, bounded concurrency, and exponential retry backoff.
+- The worker upserts by `(source_id, external_job_id)`, records new/updated/closed events, and only marks a job verified when its application URL is job-specific and on the source's official ATS host.
+- Supabase job search returns at most 50 rows per request and only listings verified within the previous seven days. Until the migration is applied and an admin configures a source, search results are empty or show a clear setup error; no sample jobs are injected.
+- Existing MongoDB persistence and company monitoring remain separate and unchanged. Set `MONGODB_URI` to retain that legacy data; without it the old API runs in memory.
 
 ## Run locally
 
-Requires Node.js 22+ and npm.
+Requires Node.js 22+.
 
 ```sh
 npm install
 npm run dev
 ```
 
-Open http://127.0.0.1:4317. No API key is needed for the five public company feeds.
+Open http://127.0.0.1:4317. Use **Companies → Feed status** to associate a company from Supabase with an official ATS board:
 
-### Enable MongoDB persistence
+- Greenhouse: `https://boards.greenhouse.io/<board>`
+- Lever: `https://jobs.lever.co/<company>`
+- Ashby: `https://jobs.ashbyhq.com/<board>`
+- SmartRecruiters: `https://careers.smartrecruiters.com/<company>`
 
-The Express server works immediately with temporary memory storage. To persist its collected listings across restarts, provide your own MongoDB database connection in a local `.env` file (never commit it):
+The provider, board ID, and HTTPS career URL must match. Only Greenhouse, Lever, and Ashby are supported by the verified Supabase jobs flow. Creating and testing a source does not turn on monitoring. The existing MongoDB company admin continues to support CSV import; Excel files are not currently supported there.
 
-```sh
-cp .env.example .env
-# Edit MONGODB_URI in .env to your database connection.
-node --env-file=.env server/index.js
-```
+### Admin access
 
-MongoDB has not been provisioned or connected automatically. Bookmarks are browser-local, not user-account data.
+For local development, write access is available without a token. Before production, configure a strong `ADMIN_TOKEN`; production write endpoints refuse to run without it. Enter the same token in **Manage companies**. Do not commit credentials.
 
-## Stack and layout
+Copy `.env.example` to `.env` and run `node --env-file=.env server/index.js`. Set `VITE_SUPABASE_URL` and `VITE_SUPABASE_PUBLISHABLE_KEY` for read-only directory access. Set `SUPABASE_URL`, `SUPABASE_PUBLISHABLE_KEY`, and the server-only `SUPABASE_SERVICE_ROLE_KEY` for admin source configuration and synchronization. Never add the service-role key to a `VITE_*` variable or expose it to the browser. Configure `ADMIN_TOKEN` before production use.
 
-- `src/main.jsx`: React interface, search, filters, pagination, bookmarks, detail dialog.
-- `src/styles.css`: responsive interface and mobile layouts.
-- `shared/jobs.js`: source registry, feed adapters, normalization, safe application links.
-- `server/index.js`: Node.js + Express API, 15-minute background refresh, optional MongoDB snapshot persistence.
-- `server/worker.js`: Sites hosting adapter using an edge cache instead of MongoDB.
-- `scripts/build.mjs`: builds the React frontend and a self-contained Sites Worker.
-- `tests/jobs.test.js`: tests for internship detection, source failures, closures, country parsing, and safe links.
+## Connector and eligibility limits
 
-## Current coverage
-
-Five verified Greenhouse company boards: Stripe, Figma, Databricks, Cloudflare, and Verkada. The interface displays the current collected count and source health. This is not an exhaustive worldwide index. Internships are selected by internship terms in titles; title conventions can cause omissions. Country and role filters are conservative rules inferred from listing text, not employer-verified metadata. Unknown eligibility and deadlines are not invented.
-
-## Refresh and freshness
-
-- **Express backend:** refreshes every 15 minutes while the Node process remains running, even with no visitors. MongoDB stores the last snapshot if configured.
-- **Hosted Sites version:** refreshes on a visit when its feed snapshot is older than 15 minutes. The page also checks every 15 minutes while open. This adapter does not run an unattended background schedule.
-- Failed feeds retain previously known records with a stale indicator. Listings are removed only after their source successfully returns a new snapshot without them.
-- “Source updated” is the employer feed update timestamp, not necessarily the original publication date.
-- Apply links open employer-provided URLs. No application is submitted by InternRadar.
+- The verified jobs flow supports Greenhouse, Lever, and Ashby public feeds. The legacy MongoDB monitor still has a separate SmartRecruiters adapter.
+- Workday and generic career pages are explicitly **Not supported**; this app does not scrape them.
+- Collection is restricted to technical internship titles and titles/descriptions with graduate, junior, associate, trainee, or entry-level indicators. Listings with explicit 3+ years requirements and senior/lead/manager roles are excluded. This conservative text qualification can miss roles; verify requirements on the employer's listing.
+- Salary, stipend, eligibility, graduation years, duration, and deadlines are not fabricated. Unknown data stays null and the UI shows “Not specified” where appropriate.
+- Provider timestamps are not guaranteed to be the original posting date. The app does not submit applications.
+- Search results are loaded on demand and refreshed in the background every 15 seconds while the page is visible, without reloading the page. The source scheduler checks which feeds are due every 15 seconds; it does not request every ATS feed at that interval.
 
 ## Verify and build
 
@@ -53,17 +82,3 @@ Five verified Greenhouse company boards: Stripe, Figma, Databricks, Cloudflare, 
 npm test
 npm run build
 ```
-
-The production build generates `dist/client` (for Express) and `dist/server/index.js` (for Sites). The hosted Site is owner-private by default. The Site project ID is saved in `.openai/hosting.json`.
-
-## Suggested learning order
-
-1. Follow the React search form and filters.
-2. Trace `/api/jobs` through Express to the shared collector.
-3. Add a small feature yourself, such as a company filter.
-4. Connect MongoDB and inspect the stored feed snapshot.
-5. Add tests before integrating another career platform.
-
-## Next milestones
-
-Expand the source registry; add Lever/Ashby adapters; connect persistent production MongoDB; deploy Express to an always-running host; add user accounts and saved-search alerts. AI matching can come after reliable collection and search.
